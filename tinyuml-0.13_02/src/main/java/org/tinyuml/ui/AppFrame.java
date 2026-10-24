@@ -264,10 +264,13 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   private void installStatusbar() {
     JPanel statusbar = new JPanel(new BorderLayout());
-    statusbar.add(coordLabel, BorderLayout.WEST);
-    statusbar.add(countLabel, BorderLayout.CENTER);
 
-    JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+    statusbar.add(coordLabel, BorderLayout.WEST);
+
+    JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+
+    centerPanel.add(countLabel);
+    centerPanel.add(new JLabel(" ||| "));
     centerPanel.add(selectedElementLabel);
     centerPanel.add(new JLabel("|"));
     centerPanel.add(selectedCountLabel);

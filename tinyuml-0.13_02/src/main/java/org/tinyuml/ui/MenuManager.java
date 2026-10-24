@@ -121,6 +121,8 @@ public class MenuManager implements ActionListener {
     group.add(zoom150);
     zoom100.setSelected(true);
     viewMenu.addSeparator();
+    viewMenu.addSeparator();
+    createMenuItem(viewMenu, "fittowindow");
     JMenuItem showGrid = createCheckBoxMenuItem(viewMenu, "showgrid");
     showGrid.setSelected(true);
     JMenuItem snapToGrid = createCheckBoxMenuItem(viewMenu, "snaptogrid");

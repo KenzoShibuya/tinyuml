@@ -205,10 +205,64 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
    * This also influences the scroll pane which the component is contained in.
    */
   private void setToDiagramSize() {
+    double factor = scaling.getScaleFactor();
     setPreferredSize(new Dimension(
-      (int) (diagram.getSize().getWidth() + MARGIN_RIGHT + MARGIN_LEFT),
-      (int) (diagram.getSize().getHeight() + MARGIN_BOTTOM + MARGIN_TOP)));
+      (int) ((diagram.getSize().getWidth() + MARGIN_RIGHT + MARGIN_LEFT) * factor),
+      (int) ((diagram.getSize().getHeight() + MARGIN_BOTTOM + MARGIN_TOP) * factor)));
     invalidate();
+  }
+
+  /**
+   * Adjusts the zoom and scroll position so that all diagram elements
+   * are visible in the current viewport. Does not modify element positions
+   * or sizes (RF-005).
+   */
+  public void fitToWindow() {
+      // Tamaño total del diagrama (incluye márgenes)
+      Dimension diagramSize = getTotalCanvasSize();
+
+      // Tamaño visible del viewport (el JScrollPane que contiene al editor)
+      Dimension viewportSize;
+      if (getParent() != null && getParent().getParent() instanceof javax.swing.JViewport) {
+          viewportSize = ((javax.swing.JViewport) getParent().getParent()).getExtentSize();
+      } else {
+          // Si no hay viewport (por ejemplo en tests), usamos el tamaño actual
+          viewportSize = new Dimension(getWidth(), getHeight());
+      }
+
+      if (diagramSize.width <= 0 || diagramSize.height <= 0
+          || viewportSize.width <= 0 || viewportSize.height <= 0) {
+          return;
+      }
+
+      // Calculamos el factor de escala que hace que quepa
+      double scaleX = (double) viewportSize.width / diagramSize.width;
+      double scaleY = (double) viewportSize.height / diagramSize.height;
+      double scaleFactor = Math.min(scaleX, scaleY);
+
+      // Limitamos el zoom a un rango razonable (ej. 10% a 400%)
+      scaleFactor = Math.max(0.1, Math.min(4.0, scaleFactor));
+
+      // Aplicamos la escala SIN modificar el modelo
+      scaling = Scaling.createScaling(scaleFactor);
+
+      // Ajustamos el tamaño preferido del componente al tamaño escalado,
+      // para que el JScrollPane sepa cuánto espacio necesita
+      setPreferredSize(new Dimension(
+          (int) (diagramSize.width * scaleFactor),
+          (int) (diagramSize.height * scaleFactor)));
+      revalidate();
+
+      // Centramos la vista
+      if (getParent() != null && getParent().getParent() instanceof javax.swing.JViewport) {
+          javax.swing.JViewport viewport =
+              (javax.swing.JViewport) getParent().getParent();
+          int x = Math.max(0, (getPreferredSize().width - viewportSize.width) / 2);
+          int y = Math.max(0, (getPreferredSize().height - viewportSize.height) / 2);
+          viewport.setViewPosition(new java.awt.Point(x, y));
+      }
+
+      repaint();
   }
 
   /**
@@ -617,6 +671,7 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
    */
   public void setScaling(Scaling aScaling) {
     scaling = aScaling;
+    setToDiagramSize();
     repaint();
   }
 

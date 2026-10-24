@@ -47,4 +47,13 @@ public final class Scaling {
    * @return the scaling factor
    */
   public double getScaleFactor() { return scaleFactor; }
+
+  /**
+   * Creates a Scaling with the specified factor.
+   * @param factor the scale factor
+   * @return the Scaling
+   */
+  public static Scaling createScaling(double factor) {
+      return new Scaling(factor);
+  }
 }
