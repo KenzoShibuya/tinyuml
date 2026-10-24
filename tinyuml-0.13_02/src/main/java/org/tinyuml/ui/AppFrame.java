@@ -101,9 +101,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private Collection<DiagramElement> lastCopiedElements;
   private transient Map<String, MethodCall> selectorMap =
     new HashMap<String, MethodCall>();
-
-  private int count = 0;
-
+    
   /**
    * Reset the transient values for serialization.
    * @param stream an ObjectInputStream
