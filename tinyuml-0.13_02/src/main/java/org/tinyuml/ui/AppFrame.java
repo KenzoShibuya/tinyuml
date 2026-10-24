@@ -23,6 +23,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -33,6 +34,7 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -44,6 +46,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.SwingConstants;
 import javax.swing.JTabbedPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
@@ -59,6 +62,15 @@ import org.tinyuml.umldraw.shared.NoteElement;
 import org.tinyuml.umldraw.structure.ClassElement;
 import org.tinyuml.umldraw.structure.ComponentElement;
 import org.tinyuml.umldraw.structure.StructureDiagram;
+import org.tinyuml.umldraw.structure.ClassElement;
+import org.tinyuml.umldraw.structure.PackageElement;
+import org.tinyuml.umldraw.structure.ComponentElement;
+import org.tinyuml.umldraw.structure.Association;
+import org.tinyuml.umldraw.structure.Dependency;
+import org.tinyuml.umldraw.structure.Inheritance;
+import org.tinyuml.umldraw.shared.NoteElement;
+import org.tinyuml.umldraw.shared.NoteConnection;
+import org.tinyuml.umldraw.shared.UmlDiagramElement;
 import org.tinyuml.model.UmlModelImpl;
 import org.tinyuml.ui.commands.ModelReader;
 import org.tinyuml.ui.commands.ModelWriter;
@@ -89,6 +101,8 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private JLabel coordLabel = new JLabel("    ");
   private JLabel memLabel = new JLabel("    ");
   private JLabel countLabel = new JLabel("Total Items: 00 | Package: 00 | Class: 00 | Component: 00 | Note: 00");
+  private JLabel selectedElementLabel = new JLabel("Sin selección");
+  private JLabel selectedCountLabel = new JLabel("Seleccionados: 0");
   private UmlModel umlModel;
   private DiagramEditor currentEditor;
   private transient Timer timer = new Timer();
@@ -222,6 +236,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
                               label.getText());
       }
     });
+    updateSelectedElementStatus();
   }
 
   /**
@@ -251,6 +266,13 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     JPanel statusbar = new JPanel(new BorderLayout());
     statusbar.add(coordLabel, BorderLayout.WEST);
     statusbar.add(countLabel, BorderLayout.CENTER);
+
+    JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+    centerPanel.add(selectedElementLabel);
+    centerPanel.add(new JLabel("|"));
+    centerPanel.add(selectedCountLabel);
+    statusbar.add(centerPanel, BorderLayout.CENTER);
+
     statusbar.add(memLabel, BorderLayout.EAST);
     getContentPane().add(statusbar, BorderLayout.SOUTH);
   }
@@ -286,6 +308,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   public void stateChanged(DiagramEditor editor) {
     updateMenuAndToolbars(editor);
+    updateSelectedElementStatus();
   }
 
   /**
@@ -337,6 +360,122 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     toolbarmanager.enableButton("COPY", hasSelection);
      
     toolbarmanager.enableButton("DELETE", hasSelection);
+
+    updateSelectedElementStatus();
+  }
+
+  /**
+   * Updates the status bar with the category and name of the selected element,
+   * or "Sin selección" if no element is selected (RF-002), and the count of
+   * selected elements, or "Seleccionados: 0" if none (RF-003).
+   */
+  private void updateSelectedElementStatus() {
+    DiagramEditor editor = getCurrentEditor();
+    if (editor == null) {
+      selectedElementLabel.setText("Sin selección");
+      selectedCountLabel.setText("Seleccionados: 0");
+      return;
+    }
+
+    List<DiagramElement> selected = editor.getSelectedElements();
+    int count = 0;
+    if (selected != null) {
+      for (DiagramElement elem : selected) {
+        if (!(elem instanceof StructureDiagram)) {
+          count++;
+        }
+      }
+    }
+
+    selectedCountLabel.setText("Seleccionados: " + count);
+
+    if (count == 0) {
+      selectedElementLabel.setText("Sin selección");
+      return;
+    }
+
+    DiagramElement element = null;
+    for (DiagramElement elem : selected) {
+      if (!(elem instanceof StructureDiagram)) {
+        element = elem;
+        break;
+      }
+    }
+
+    if (element == null) {
+      selectedElementLabel.setText("Sin selección");
+      return;
+    }
+
+    String categoria = "";
+    String nombre = "";
+
+    if (element instanceof ClassElement) {
+      categoria = "Clase";
+      ClassElement classElem = (ClassElement) element;
+      if (classElem.getModelElement() != null) {
+        nombre = classElem.getModelElement().getName();
+      }
+    } else if (element instanceof PackageElement) {
+      categoria = "Paquete";
+      PackageElement pkgElem = (PackageElement) element;
+      if (pkgElem.getModelElement() != null) {
+        nombre = pkgElem.getModelElement().getName();
+      }
+    } else if (element instanceof ComponentElement) {
+      categoria = "Componente";
+      ComponentElement compElem = (ComponentElement) element;
+      if (compElem.getModelElement() != null) {
+        nombre = compElem.getModelElement().getName();
+      }
+    } else if (element instanceof NoteElement) {
+      categoria = "Nota";
+      nombre = ((NoteElement) element).getLabelText();
+      if (nombre != null) {
+        nombre = nombre.replace('\n', ' ').trim();
+      }
+    } else if (element instanceof Association) {
+      Association assoc = (Association) element;
+      if (assoc.getAssociationType() == Association.AssociationType.COMPOSITION) {
+        categoria = "Composición";
+      } else if (assoc.getAssociationType() == Association.AssociationType.AGGREGATION) {
+        categoria = "Agregación";
+      } else {
+        categoria = "Asociación";
+      }
+      if (assoc.getModelElement() != null) {
+        nombre = assoc.getModelElement().getName();
+      }
+    } else if (element instanceof Dependency) {
+      categoria = "Dependencia";
+      Dependency dep = (Dependency) element;
+      if (dep.getModelElement() != null) {
+        nombre = dep.getModelElement().getName();
+      }
+    } else if (element instanceof Inheritance) {
+      Inheritance inh = (Inheritance) element;
+      categoria = inh.isDashed() ? "Realización de interfaz" : "Herencia";
+      if (inh.getModelElement() != null) {
+        nombre = inh.getModelElement().getName();
+      }
+    } else if (element instanceof NoteConnection) {
+      categoria = "Conexión de nota";
+      nombre = "";
+    } else if (element instanceof UmlDiagramElement) {
+      categoria = "Elemento UML";
+      UmlDiagramElement umlElem = (UmlDiagramElement) element;
+      if (umlElem.getModelElement() != null) {
+        nombre = umlElem.getModelElement().getName();
+      }
+    }
+
+    if (nombre != null && !nombre.trim().isEmpty()) {
+      selectedElementLabel.setText(categoria + ": " + nombre);
+    } else if (!categoria.isEmpty()) {
+      selectedElementLabel.setText(categoria);
+    } else {
+      selectedElementLabel.setText("Sin selección");
+    }
   }
 
   // ************************************************************************
@@ -645,7 +784,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
 	  if(hasSelection)
 	    lastCopiedElements = getCurrentEditor().getSelectedElements();
 
-	  //adicionalmente, hay que habilitar el bot�n PASTE!
+	  //adicionalmente, hay que habilitar el botón PASTE!
 	  menumanager.enableMenuItem("PASTE", hasSelection);
 	  toolbarmanager.enableButton("PASTE", hasSelection);
   }
