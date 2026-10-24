@@ -23,6 +23,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -92,6 +93,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private JLabel coordLabel = new JLabel("    ");
   private JLabel memLabel = new JLabel("    ");
   private JLabel selectedElementLabel = new JLabel("Sin selección");
+  private JLabel selectedCountLabel = new JLabel("Seleccionados: 0");
   private UmlModel umlModel;
   private DiagramEditor currentEditor;
   private transient Timer timer = new Timer();
@@ -254,8 +256,13 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private void installStatusbar() {
     JPanel statusbar = new JPanel(new BorderLayout());
     statusbar.add(coordLabel, BorderLayout.WEST);
-    selectedElementLabel.setHorizontalAlignment(SwingConstants.CENTER);
-    statusbar.add(selectedElementLabel, BorderLayout.CENTER);
+
+    JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+    centerPanel.add(selectedElementLabel);
+    centerPanel.add(new JLabel("|"));
+    centerPanel.add(selectedCountLabel);
+    statusbar.add(centerPanel, BorderLayout.CENTER);
+
     statusbar.add(memLabel, BorderLayout.EAST);
     getContentPane().add(statusbar, BorderLayout.SOUTH);
   }
@@ -346,23 +353,43 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
 
   /**
    * Updates the status bar with the category and name of the selected element,
-   * or "Sin selección" if no element is selected (RF-002).
+   * or "Sin selección" if no element is selected (RF-002), and the count of
+   * selected elements, or "Seleccionados: 0" if none (RF-003).
    */
   private void updateSelectedElementStatus() {
     DiagramEditor editor = getCurrentEditor();
     if (editor == null) {
       selectedElementLabel.setText("Sin selección");
+      selectedCountLabel.setText("Seleccionados: 0");
       return;
     }
 
     List<DiagramElement> selected = editor.getSelectedElements();
-    if (selected == null || selected.isEmpty()) {
+    int count = 0;
+    if (selected != null) {
+      for (DiagramElement elem : selected) {
+        if (!(elem instanceof StructureDiagram)) {
+          count++;
+        }
+      }
+    }
+
+    selectedCountLabel.setText("Seleccionados: " + count);
+
+    if (count == 0) {
       selectedElementLabel.setText("Sin selección");
       return;
     }
 
-    DiagramElement element = selected.get(0);
-    if (element instanceof StructureDiagram) {
+    DiagramElement element = null;
+    for (DiagramElement elem : selected) {
+      if (!(elem instanceof StructureDiagram)) {
+        element = elem;
+        break;
+      }
+    }
+
+    if (element == null) {
       selectedElementLabel.setText("Sin selección");
       return;
     }
