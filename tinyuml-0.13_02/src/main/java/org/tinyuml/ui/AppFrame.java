@@ -36,6 +36,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+
+
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -46,11 +48,16 @@ import javax.swing.JTabbedPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import org.tinyuml.umldraw.structure.PackageElement;
 import org.tinyuml.draw.Label;
 import org.tinyuml.draw.DiagramElement;
 import org.tinyuml.draw.LabelChangeListener;
 import org.tinyuml.model.UmlModel;
+import org.tinyuml.model.UmlModelElement;
 import org.tinyuml.util.AppCommandListener;
+import org.tinyuml.umldraw.shared.NoteElement;
+import org.tinyuml.umldraw.structure.ClassElement;
+import org.tinyuml.umldraw.structure.ComponentElement;
 import org.tinyuml.umldraw.structure.StructureDiagram;
 import org.tinyuml.model.UmlModelImpl;
 import org.tinyuml.ui.commands.ModelReader;
@@ -63,6 +70,7 @@ import org.tinyuml.ui.diagram.EditorStateListener;
 import org.tinyuml.ui.diagram.SelectionListener;
 import org.tinyuml.util.ApplicationResources;
 import org.tinyuml.util.MethodCall;
+import org.tinyuml.draw.Connection;
 
 /**
  * This class implements the Application frame. The top-level UI elements are
@@ -80,6 +88,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private JTabbedPane tabbedPane;
   private JLabel coordLabel = new JLabel("    ");
   private JLabel memLabel = new JLabel("    ");
+  private JLabel countLabel = new JLabel("Total Items: 00 | Package: 00 | Class: 00 | Component: 00 | Note: 00");
   private UmlModel umlModel;
   private DiagramEditor currentEditor;
   private transient Timer timer = new Timer();
@@ -93,6 +102,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private transient Map<String, MethodCall> selectorMap =
     new HashMap<String, MethodCall>();
 
+  private int count = 0;
 
   /**
    * Reset the transient values for serialization.
@@ -206,6 +216,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     editorPanel.add(spane, BorderLayout.CENTER);
     editorPanel.add(toolbar, BorderLayout.NORTH);
     final Component comp = tabbedPane.add(diagram.getLabelText(), editorPanel);
+    updateElementCount();
     diagram.addNameLabelChangeListener(new LabelChangeListener() {
       /** {@inheritDoc} */
       public void labelTextChanged(Label label) {
@@ -241,6 +252,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private void installStatusbar() {
     JPanel statusbar = new JPanel(new BorderLayout());
     statusbar.add(coordLabel, BorderLayout.WEST);
+    statusbar.add(countLabel, BorderLayout.CENTER);
     statusbar.add(memLabel, BorderLayout.EAST);
     getContentPane().add(statusbar, BorderLayout.SOUTH);
   }
@@ -270,6 +282,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
       event.getY()));
   }
 
+
   /**
    * {@inheritDoc}
    */
@@ -284,6 +297,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     // spring loading is implemented here
     staticToolbarManager.doClick("SELECT_MODE");
     updateMenuAndToolbars(editor);
+    updateElementCount();
   }
 
   /**
@@ -291,6 +305,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   public void elementRemoved(DiagramEditor editor) {
     updateMenuAndToolbars(editor);
+    updateElementCount();
   }
 
   /**
@@ -424,6 +439,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
       diagram.setLabelText("Class diagram 1");
       tabbedPane.removeAll();
       createEditor(diagram);
+      updateElementCount();
     }
   }
 
@@ -531,12 +547,14 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
           tabbedPane.removeAll();
           createEditor((StructureDiagram) umlModel.getDiagrams().get(0));
           updateFrameTitle();
+          updateElementCount();
         } catch (IOException ex) {
           JOptionPane.showMessageDialog(this, ex.getMessage(),
             getResourceString("error.readfile.title"),
             JOptionPane.ERROR_MESSAGE);
         }
       }
+
     }
   }
 
@@ -629,7 +647,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
 	  if(hasSelection)
 	    lastCopiedElements = getCurrentEditor().getSelectedElements();
 
-	  //adicionalmente, hay que habilitar el botón PASTE!
+	  //adicionalmente, hay que habilitar el botï¿½n PASTE!
 	  menumanager.enableMenuItem("PASTE", hasSelection);
 	  toolbarmanager.enableButton("PASTE", hasSelection);
   }
@@ -669,5 +687,44 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     } catch (URISyntaxException ignore) {
       ignore.printStackTrace();
     }
+  }
+
+  /**
+ * Actualiza el label de conteo de elementos del diagrama activo.
+ * Cuenta Package, Class, Component y Note, excluyendo relaciones.
+ */
+  private void updateElementCount() {
+      if (currentEditor == null) {
+          countLabel.setText("Total Items: 00 | Package: 00 | Class: 00 | Component: 00 | Note: 00");
+          return;
+      }
+
+      int packages = 0, classes = 0, components = 0, notes = 0;
+
+      // Obtenemos todos los elementos del diagrama actual.
+      // StructureDiagram expone getElements() o similar; si no, usamos el modelo.
+      // Vamos a recorrer los elementos del diagrama a travÃ©s del editor.
+      Collection<DiagramElement> elements = currentEditor.getDiagram().getChildren();
+
+      for (DiagramElement element : elements) {
+          // Excluir relaciones (Connection)
+          if (element instanceof Connection) {
+              continue;
+          }
+          if (element instanceof PackageElement) {
+              packages++;
+          } else if (element instanceof ClassElement) {
+              classes++;
+          } else if (element instanceof ComponentElement) {
+              components++;
+          } else if (element instanceof NoteElement) {
+              notes++;
+          }
+      }
+
+      int total = packages + classes + components + notes;
+      countLabel.setText(String.format(
+          "Total Items: %02d | Package: %02d | Class: %02d | Component: %02d | Note: %02d",
+          total, packages, classes, components, notes));
   }
 }
