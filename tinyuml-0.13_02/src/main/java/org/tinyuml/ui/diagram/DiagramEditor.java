@@ -41,6 +41,7 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.KeyStroke;
 import javax.swing.event.UndoableEditEvent;
 import javax.swing.event.UndoableEditListener;
@@ -247,11 +248,34 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
   }
 
   /**
-   * Removes the current selection.
+   * Removes the current selection. If multiple elements are selected, asks for
+   * confirmation and indicates how many elements will be deleted (RF-004).
    */
   public void deleteSelection() {
-    Collection<DiagramElement> elements = getSelectedElements();
-    execute(new DeleteElementCommand(this, elements));
+    List<DiagramElement> toDelete = new ArrayList<DiagramElement>();
+    for (DiagramElement elem : getSelectedElements()) {
+      if (!(elem instanceof StructureDiagram)) {
+        toDelete.add(elem);
+      }
+    }
+
+    if (toDelete.isEmpty()) {
+      return;
+    }
+
+    // RF-004: Confirmación para eliminar varios elementos
+    if (toDelete.size() > 1) {
+      String message = "¿Está seguro de que desea eliminar los " + toDelete.size()
+        + " elementos seleccionados?";
+      String title = "Confirmar eliminación";
+      int option = JOptionPane.showConfirmDialog(this, message, title,
+        JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+      if (option != JOptionPane.YES_OPTION) {
+        return;
+      }
+    }
+
+    execute(new DeleteElementCommand(this, toDelete));
   }
   /**
    * Pastes into this diagram the handed Elements
@@ -271,9 +295,9 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
 		clonedElements.put(elem, copia);
 	}
 	
-	// hasta aqu� tengo el hash de cada objeto con su clon (del nuevo diagrama)
+	// hasta aquí tengo el hash de cada objeto con su clon (del nuevo diagrama)
 	// ahora debo iterar por cada Connection en elements y rehacer sus conexiones
-	// tomar� el ejemplo desde PasteElementCommand.
+	// tomaré el ejemplo desde PasteElementCommand.
 	for(DiagramElement elem : elements){
 		if(elem instanceof Connection){
 			Connection currentConnection = (Connection)elem;
